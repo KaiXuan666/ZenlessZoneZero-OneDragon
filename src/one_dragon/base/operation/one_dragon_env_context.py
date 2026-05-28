@@ -5,7 +5,7 @@ from typing import Optional
 from one_dragon.envs.download_service import DownloadService
 from one_dragon.envs.env_config import EnvConfig
 from one_dragon.envs.ghproxy_service import GhProxyService
-from one_dragon.envs.git_service import GitService
+from one_dragon.envs.git.git_service import GitService
 from one_dragon.envs.project_config import ProjectConfig
 from one_dragon.envs.python_service import PythonService
 

@@ -20,7 +20,7 @@ class RuntimeLauncher(ExeLauncher):
         pre_modules = set(sys.modules)
 
         from one_dragon.envs.env_config import EnvConfig
-        from one_dragon.envs.git_service import GitService
+        from one_dragon.envs.git.git_service import GitService
         from one_dragon.envs.project_config import ProjectConfig
         from one_dragon.utils.i18_utils import gt
         from one_dragon.utils.log_utils import log
