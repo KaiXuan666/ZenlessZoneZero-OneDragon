@@ -52,12 +52,11 @@ class ExeLauncher(LauncherBase):
             print("错误：参数 --close-game, --shutdown, --instance 只能在指定 --onedragon 时使用")
             sys.exit(1)
 
-        if not pyuac.isUserAdmin():
+        if args.onedragon:
+            launch_args = self.build_launch_args(args)
+            self.run_onedragon_mode(launch_args)
+        elif not pyuac.isUserAdmin():
             pyuac.runAsAdmin(sys.argv, wait=False)
             sys.exit(0)
         else:
-            if args.onedragon:
-                launch_args = self.build_launch_args(args)
-                self.run_onedragon_mode(launch_args)
-            else:
-                self.run_gui_mode()
+            self.run_gui_mode()

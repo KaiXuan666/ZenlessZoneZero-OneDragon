@@ -88,3 +88,21 @@ uv run --env-file .env ruff check --fix src/你修改的文件.py
 ## AI 工具接入
 
 本仓库以根目录 `AGENTS.md` 作为统一入口；其他工具按 [docs/develop/README.md](docs/develop/README.md) 中的硬链接说明接入即可。
+
+## 附：AI 协作开发备忘与避坑指南 (Windows 定时任务/静默后台专项)
+
+### 1. 禁用自动更新以防本地微调被覆盖
+- **现象**: 启动器 `OneDragon-Launcher.exe` 启动时默认会核对 Git 分支并自动更新代码，这会通过 `git checkout` / `git reset` 将本地对超时的代码微调全部抹去。
+- **硬约束**: 需要在本地测试并固化超时参数时，必须在 `config/env.yml` 中显式配置 `auto_update: false` 以禁用此机制。
+
+### 2. 避免无交互后台会话中的 UAC 弹窗提权闪退
+- **现象**: 在 Windows 任务计划程序（非交互静默服务会话）中以最高特权运行时，`pyuac.isUserAdmin()` 可能会误报并强行触发 `pyuac.runAsAdmin` 进行桌面 UAC 提示，导致在无显示设备的后台抛出 `0xC000013A` (STATUS_CONTROL_C_EXIT) 闪退。
+- **硬约束**: 在命令行挂机模式下（即带有 `--onedragon` / `-o` 启动参数时），在 `src/one_dragon/launcher/exe_launcher.py` 中直接跳过 UAC 检测与 `pyuac` 管理员提权动作，直接进入一条龙逻辑。
+
+### 3. Windows 定时任务脚本编码与注释规范
+- **现象**: Windows 定时任务服务强制使用系统 ANSI/GBK 编码解析没有 BOM 头的脚本。若 `.bat` 或 `.ps1` 启动脚本中包含任何中文注释，会引起解析异常损坏换行符，将业务代码当成注释吞逝导致计划任务启动即闪退报错。
+- **硬约束**: 所有用于 Windows 计划任务的引导脚本（如 `run_onedragon_daily.bat` 和 `run_onedragon_daily.ps1`）一律**必须采用 100% 纯 ASCII（英文）编写且绝对不留任何中文字符**。
+
+### 4. 熄屏及无物理渲染下的截图防崩保护
+- **硬约束**: 定时任务唤醒时设备可能处于锁屏或熄屏状态，显卡无物理输出会导致截图返回为 `None`。为防止图像裁剪工具崩溃闪退，核心识别节点（如 `check_screen` 等）入口处必须进行 `self.last_screenshot is None` 校验并执行 `round_retry`，以温柔的轮询等待物理渲染恢复。
+

@@ -48,10 +48,12 @@ class EnterGame(ZOperation):
     @node_from(from_name='B服新-选择登录过的账号')
     @node_from(from_name='国际服-换服')
     @node_from(from_name='画面识别', status='B服新-同意隐私政策')
-    @operation_node(name='画面识别', node_max_retry_times=60, is_start_node=True)
+    @operation_node(name='画面识别', node_max_retry_times=300, is_start_node=True)
     def check_screen(self) -> OperationRoundResult:
         # self.screenshot()
         # cv2_utils.show_image(self.last_screenshot, win_name='debug', wait=1)
+        if self.last_screenshot is None:
+            return self.round_retry(status='游戏画面为空', wait=1)
 
         login_result = self.check_login_related(self.last_screenshot)
         if login_result is not None:
@@ -448,7 +450,7 @@ class EnterGame(ZOperation):
         return None
 
     @node_from(from_name='画面识别', status='点击进入游戏')
-    @operation_node(name='进入游戏后操作', node_max_retry_times=15)
+    @operation_node(name='进入游戏后操作', node_max_retry_times=180)
     def after_enter_game(self) -> OperationRoundResult:
         # 识别并点击弹窗
         interact_result = self.check_screen_to_interact(self.last_screenshot)

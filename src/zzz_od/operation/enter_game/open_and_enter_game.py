@@ -28,7 +28,7 @@ class OpenAndEnterGame(Operation):
         return self.round_by_op_result(op.execute())
 
     @node_from(from_name='打开游戏')
-    @operation_node(name='等待游戏打开', node_max_retry_times=60, screenshot_before_round=False)
+    @operation_node(name='等待游戏打开', node_max_retry_times=180, screenshot_before_round=False)
     def wait_game(self) -> OperationRoundResult:
         self.ctx.controller.init_game_win()
         if self.ctx.controller.is_game_window_ready:
