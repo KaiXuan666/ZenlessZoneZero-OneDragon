@@ -70,12 +70,26 @@ class ChoosePredefinedTeam(ZOperation):
 
             ocr_map = self.ctx.ocr.run_ocr(self.last_screenshot)
             target_list = list(ocr_map.keys())
-            best_match = difflib.get_close_matches(target_team_name, target_list, n=1)
 
-            if best_match is None or len(best_match) == 0:
+            # 1. 尝试剔除空格后精确或包含匹配
+            clean_target = target_team_name.replace(" ", "")
+            matched_ocr_key = None
+            for key in target_list:
+                clean_key = key.replace(" ", "")
+                if clean_target == clean_key or clean_target in clean_key or clean_key in clean_target:
+                    matched_ocr_key = key
+                    break
+
+            # 2. 如果没有找到完美匹配，退回到原有的 difflib 模糊匹配
+            if matched_ocr_key is None:
+                best_match = difflib.get_close_matches(target_team_name, target_list, n=1)
+                if best_match is not None and len(best_match) > 0:
+                    matched_ocr_key = best_match[0]
+
+            if matched_ocr_key is None:
                 return self.round_fail(f'当前页未找到编队 {target_team_name}')
 
-            ocr_result: MatchResultList = ocr_map.get(best_match[0], None)
+            ocr_result: MatchResultList = ocr_map.get(matched_ocr_key, None)
             if ocr_result is None or ocr_result.max is None:
                 return self.round_fail(f'当前页未找到编队 {target_team_name}')
 

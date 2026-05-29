@@ -1,12 +1,54 @@
 Write-Host "1. Setting system volume to mute..."
 try {
-    $w = New-Object -ComObject Wscript.Shell
-    for ($i = 0; $i -lt 50; $i++) {
-        $w.SendKeys([char]174)
+    $code = @'
+using System;
+using System.Runtime.InteropServices;
+
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IAudioEndpointVolume {
+    int f1(); int f2(); int f3(); int f4();
+    int SetMasterVolumeLevelScalar(float fLevel, Guid pguidEventContext);
+    int f6();
+    int GetMasterVolumeLevelScalar(out float pfLevel);
+    int f8(); int f9(); int f10(); int f11();
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, Guid pguidEventContext);
+    int GetMute(out bool pbMute);
+}
+
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IMMDevice {
+    int Activate(ref Guid id, int clsCtx, int activationParams, out IAudioEndpointVolume aev);
+}
+
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IMMDeviceEnumerator {
+    int f1();
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+}
+
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+public class MMDeviceEnumeratorComObject { }
+
+public class AudioController {
+    public static void SetMute(bool mute) {
+        var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+        IMMDevice dev = null;
+        enumerator.GetDefaultAudioEndpoint(0, 1, out dev);
+        
+        IAudioEndpointVolume epv = null;
+        Guid epvid = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
+        dev.Activate(ref epvid, 23, 0, out epv);
+        
+        epv.SetMute(mute, Guid.Empty);
     }
-    $w.SendKeys([char]173)
+}
+'@
+
+    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Runtime.InteropServices"
+    [AudioController]::SetMute($true)
+    Write-Host "System volume successfully muted."
 } catch {
-    Write-Warning "Volume control failed: $_"
+    Write-Warning "System mute control failed: $_"
 }
 
 $maxRetries = 3
