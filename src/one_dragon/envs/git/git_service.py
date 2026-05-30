@@ -81,32 +81,23 @@ class GitService:
         return self._repo
 
     def _ensure_remote(self) -> Remote:
-        """确保远程仓库配置正确
+        """确保远程仓库存在
 
         Returns:
             Remote 对象
         """
+        repo = self._open_repo()
+        remote_name = self.env_config.git_remote
+
+        # 已存在的远程地址可能是用户自己的 fork、SSH 地址或自定义镜像。
+        # 启动器不应覆盖用户本地 Git 配置，否则会破坏提交推送工作流。
+        if remote_name in repo.remotes.names():
+            return repo.remotes[remote_name]
+
         remote_url = self._get_git_repository()
         if not remote_url:
             raise ValueError('未能获取有效的远程仓库地址')
 
-        repo = self._open_repo()
-        remote_name = self.env_config.git_remote
-
-        # 检查远程是否已存在
-        if remote_name in repo.remotes.names():
-            remote = repo.remotes[remote_name]
-
-            # URL相同，直接返回
-            if remote.url == remote_url:
-                return remote
-
-            # URL不同，需要更新
-            log.info(f'更新远程仓库地址: {remote.url} -> {remote_url}')
-            repo.remotes.set_url(remote_name, remote_url)
-            return repo.remotes[remote_name]
-
-        # 远程不存在，创建新的
         log.info(f'创建远程仓库: {remote_name} -> {remote_url}')
         repo.remotes.create(remote_name, remote_url)
         return repo.remotes[remote_name]
