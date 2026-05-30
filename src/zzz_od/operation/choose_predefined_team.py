@@ -35,6 +35,7 @@ class ChoosePredefinedTeam(ZOperation):
             ],
             default=0,
         )
+        self.team_clicked: bool = False
 
     @operation_node(name='画面识别', node_max_retry_times=10, is_start_node=True)
     def check_screen(self) -> OperationRoundResult:
@@ -54,11 +55,12 @@ class ChoosePredefinedTeam(ZOperation):
     @node_from(from_name='尝试查找编队')
     @operation_node(name='选择编队')
     def choose_team(self) -> OperationRoundResult:
-        area = self.ctx.screen_loader.get_area('实战模拟室', '预备出战')
-        result = self.round_by_ocr(self.last_screenshot, '预备出战', area=area,
-                                   color_range=[[240, 240, 240], [255, 255, 255]])
-        if result.is_success:
-            return self.round_success(result.status)
+        if self.team_clicked:
+            area = self.ctx.screen_loader.get_area('实战模拟室', '预备出战')
+            result = self.round_by_ocr(self.last_screenshot, '预备出战', area=area,
+                                       color_range=[[240, 240, 240], [255, 255, 255]])
+            if result.is_success:
+                return self.round_success(result.status)
 
         team_list = self.ctx.team_config.team_list
 
@@ -98,6 +100,7 @@ class ChoosePredefinedTeam(ZOperation):
 
             time.sleep(0.5)
 
+        self.team_clicked = True
         return self.round_wait(wait=1)
 
     @node_from(from_name='选择编队', success=False)

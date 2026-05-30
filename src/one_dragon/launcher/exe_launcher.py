@@ -1,9 +1,32 @@
 import argparse
+import ctypes
 import sys
+from typing import Any
 
-import pyuac
+try:
+    import pyuac
+except ImportError:
+    pyuac = None
 
 from one_dragon.launcher.launcher_base import LauncherBase
+
+
+def _is_user_admin() -> bool:
+    """判断当前进程是否以管理员权限运行。"""
+    if pyuac is not None:
+        return bool(pyuac.isUserAdmin())
+    return bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+
+def _run_as_admin(argv: list[str]) -> None:
+    """使用管理员权限重新拉起当前启动器。"""
+    if pyuac is not None:
+        pyuac.runAsAdmin(argv, wait=False)
+        return
+
+    executable = argv[0]
+    parameters = " ".join(f'"{arg}"' for arg in argv[1:])
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, parameters, None, 1)
 
 
 class ExeLauncher(LauncherBase):
@@ -43,7 +66,7 @@ class ExeLauncher(LauncherBase):
         """运行GUI模式，子类实现"""
         pass
 
-    def main(self, args) -> None:
+    def main(self, args: Any) -> None:
         """执行主要逻辑"""
         if args.version:
             self.show_version()
@@ -55,8 +78,8 @@ class ExeLauncher(LauncherBase):
         if args.onedragon:
             launch_args = self.build_launch_args(args)
             self.run_onedragon_mode(launch_args)
-        elif not pyuac.isUserAdmin():
-            pyuac.runAsAdmin(sys.argv, wait=False)
+        elif not _is_user_admin():
+            _run_as_admin(sys.argv)
             sys.exit(0)
         else:
             self.run_gui_mode()

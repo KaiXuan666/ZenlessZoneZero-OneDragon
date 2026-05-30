@@ -13,7 +13,23 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from colorama import Fore, Style, init
+try:
+    from colorama import Fore, Style, init
+except ImportError:
+    class _EmptyColor:
+        CYAN = ""
+        GREEN = ""
+        RESET_ALL = ""
+        WHITE = ""
+        YELLOW = ""
+        BRIGHT = ""
+
+    Fore = _EmptyColor()
+    Style = _EmptyColor()
+
+    def init(autoreset: bool = True) -> None:
+        """colorama 不存在时使用普通控制台输出。"""
+        return None
 
 if TYPE_CHECKING:
     from one_dragon.base.operation.one_dragon_env_context import OneDragonEnvContext
@@ -61,6 +77,7 @@ def configure_environment(ctx: OneDragonEnvContext, cwd):
     print_message("开始配置环境变量...", "INFO")
     os.environ.update({
         'PYTHONPATH': os.path.join(cwd, "src"),
+        'PYTHONDONTWRITEBYTECODE': '1',
         'UV_DEFAULT_INDEX': ctx.env_config.pip_source,
     })
 

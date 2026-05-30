@@ -1,6 +1,8 @@
 try:
     import sys
 
+    sys.dont_write_bytecode = True
+
     from PySide6.QtCore import Qt, QThread, QTimer, Signal
     from PySide6.QtWidgets import QApplication
     from qfluentwidgets import NavigationItemPosition, Theme, setTheme

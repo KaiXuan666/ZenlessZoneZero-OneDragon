@@ -169,6 +169,38 @@ class GitService:
                     # 有提交历史，使用增量拉取
                     depth = 0
 
+            # 优先尝试使用系统的 git 命令行，防止 pygit2 核心在某些环境下(如 SSL/代理)发生段错误闪退
+            import subprocess
+            import os
+            try:
+                env = os.environ.copy()
+                if proxy:
+                    env['HTTP_PROXY'] = proxy
+                    env['HTTPS_PROXY'] = proxy
+
+                cmd = ['git', 'fetch']
+                if depth > 0:
+                    cmd.append(f'--depth={depth}')
+                cmd.extend([remote.name, f'{branch_name}:refs/remotes/{remote.name}/{branch_name}'])
+
+                # 运行 git fetch，设定超时，避免卡死
+                result = subprocess.run(
+                    cmd,
+                    cwd=self.repo_dir,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=60,
+                    text=True
+                )
+                if result.returncode == 0:
+                    log.info(gt('获取远程代码成功'))
+                    return True
+                else:
+                    log.warning(f'系统 git fetch 失败: {result.stderr.strip()}，尝试使用 pygit2 兜底')
+            except Exception as git_err:
+                log.warning(f'调用系统 git 失败: {git_err}，尝试使用 pygit2 兜底')
+
             try:
                 remote.fetch(refspecs=refspecs, proxy=proxy, depth=depth)
             except KeyError as e:
@@ -739,12 +771,54 @@ class GitService:
         if not self.check_repo_exists():
             return '', ''
 
+        @dataclass
+        class RemoteHeadRef:
+            name: str
+
+        heads: list[RemoteHeadRef] = []
+        proxy = self._get_proxy_address()
+
+        # 优先尝试使用系统的 git 命令行，防止 pygit2 核心在某些环境下(如 SSL/代理)发生段错误闪退
+        import subprocess
+        import os
         try:
+            env = os.environ.copy()
+            if proxy:
+                env['HTTP_PROXY'] = proxy
+                env['HTTPS_PROXY'] = proxy
+
             remote = self._ensure_remote()
-            heads = remote.list_heads(proxy=self._get_proxy_address())
-        except Exception:
-            log.error('获取最新标签失败', exc_info=True)
-            return '', ''
+            # 运行 git ls-remote，设定超时，避免卡死
+            result = subprocess.run(
+                ['git', 'ls-remote', '--tags', remote.name],
+                cwd=self.repo_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30,
+                text=True
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    parts = line.strip().split('\t')
+                    if len(parts) >= 2:
+                        ref_name = parts[1]
+                        heads.append(RemoteHeadRef(name=ref_name))
+            else:
+                log.warning(f'系统 git ls-remote 失败: {result.stderr.strip()}，尝试使用 pygit2 兜底')
+        except Exception as git_err:
+            log.warning(f'调用系统 git ls-remote 失败: {git_err}，尝试使用 pygit2 兜底')
+
+        # 如果系统 git 没能获取到，则兜底使用 pygit2
+        if not heads:
+            try:
+                remote = self._ensure_remote()
+                pygit2_heads = remote.list_heads(proxy=proxy)
+                for h in pygit2_heads:
+                    heads.append(RemoteHeadRef(name=h.name))
+            except Exception:
+                log.error('获取最新标签失败', exc_info=True)
+                return '', ''
 
         # 提取标签名称并解析为 Version 对象
         tags: dict[str, version.Version] = {}

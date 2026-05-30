@@ -434,7 +434,7 @@ class HomeInterface(BaseInterface):
         """初始化检查更新的线程"""
         self._check_code_runner = CheckRunner(
             self.ctx,
-            lambda ctx: not ctx.git_service.is_current_branch_latest()[0],
+            lambda ctx: ctx.env_config.auto_update and not ctx.git_service.is_current_branch_latest()[0],
             self
         )
         self._check_code_runner.need_update.connect(

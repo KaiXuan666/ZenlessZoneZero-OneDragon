@@ -12,7 +12,7 @@ from qfluentwidgets import (
 )
 
 from one_dragon.base.operation.one_dragon_env_context import OneDragonEnvContext
-from one_dragon.envs.git_service import GitLog
+from one_dragon.envs.git.git_service import GitLog
 from one_dragon.utils.app_utils import start_one_dragon
 from one_dragon.utils.i18_utils import gt
 from one_dragon_qt.widgets.column import Column

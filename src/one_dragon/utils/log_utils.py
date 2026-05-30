@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 from contextlib import suppress
 from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
@@ -196,7 +198,7 @@ def _handler_belongs_to_logger(handler: logging.Handler, logger: logging.Logger)
 
 def _build_file_handler(logger: logging.Logger, config: LoggerConfig) -> logging.Handler:
     handler = TimedRotatingFileHandler(
-        get_log_file_path(config.log_file_path, default_name=config.default_name),
+        _get_writable_log_file_path(config),
         when='midnight',
         interval=1,
         backupCount=3,
@@ -204,6 +206,30 @@ def _build_file_handler(logger: logging.Logger, config: LoggerConfig) -> logging
         delay=True,
     )
     return _prepare_handler(handler, logger, config)
+
+
+def _get_writable_log_file_path(config: LoggerConfig) -> str:
+    """获取可写日志路径，工作目录无权限时回退到用户本地目录。"""
+    primary_path = Path(get_log_file_path(config.log_file_path, config.default_name))
+    if _can_write_log_file(primary_path):
+        return str(primary_path)
+
+    fallback_root = Path(os.getenv('LOCALAPPDATA', tempfile.gettempdir()))
+    fallback_path = fallback_root / 'OneDragon' / 'logs' / primary_path.name
+    if _can_write_log_file(fallback_path):
+        return str(fallback_path)
+
+    return os.devnull
+
+
+def _can_write_log_file(path: Path) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open('a', encoding='utf-8'):
+            pass
+        return True
+    except OSError:
+        return False
 
 
 def _prepare_handler(
