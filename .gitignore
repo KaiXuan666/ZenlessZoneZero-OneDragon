@@ -90,3 +90,4 @@ telemetry_export_*.json
 telemetry_report_*.json
 privacy_report_*.json
 scheduler_debug.log
+.codegraph/
