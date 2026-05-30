@@ -76,6 +76,7 @@ uv run --env-file .env ruff check --fix src/你修改的文件.py
 - **修改代码后严禁直接执行 git commit 或 git push 进行提交与推送，一律必须保持在暂存区，并停下等待用户的明确指令后方可提交！**
 - 默认不要主动执行 `git commit`、`git push`、`git reset`、删分支等版本控制操作，除非用户明确要求。
 - 如果用户明确要求切换分支，先 `stash` 当前改动，再切换。
+- 提交代码时，使用中文编写提交信息
 - Review 关注逻辑错误、运行时崩溃、死循环、资源泄漏；不要为风格问题大改现有代码。
 - 提交 PR 后，review comment 需要逐条回复或修正。
 
