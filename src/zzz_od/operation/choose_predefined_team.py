@@ -6,6 +6,7 @@ from one_dragon.base.matcher.match_result import MatchResultList
 from one_dragon.base.operation.operation_edge import node_from
 from one_dragon.base.operation.operation_node import operation_node
 from one_dragon.base.operation.operation_round_result import OperationRoundResult
+from one_dragon.utils import str_utils
 from one_dragon.utils.i18_utils import gt
 from zzz_od.context.zzz_context import ZContext
 from zzz_od.operation.zzz_operation import ZOperation
@@ -15,6 +16,15 @@ from zzz_od.screen_area.screen_normal_world import ScreenNormalWorldEnum
 class ChoosePredefinedTeam(ZOperation):
 
     TEAM_SCROLL_STEP: int = 4
+    TEAM_VISIBLE_COUNT: int = 6
+    TEAM_SELECT_POS_LIST: list[Point] = [
+        Point(912, 190),
+        Point(1726, 190),
+        Point(912, 474),
+        Point(1726, 474),
+        Point(912, 758),
+        Point(1726, 758),
+    ]
 
     def __init__(self, ctx: ZContext, target_team_idx_list: list[int]):
         """
@@ -71,31 +81,15 @@ class ChoosePredefinedTeam(ZOperation):
             target_team_name = team_list[target_team_idx].name
 
             ocr_map = self.ctx.ocr.run_ocr(self.last_screenshot)
-            target_list = list(ocr_map.keys())
+            ocr_result = self._match_team_ocr_result(ocr_map, target_team_name)
 
-            # 1. 尝试剔除空格后精确或包含匹配
-            clean_target = target_team_name.replace(" ", "")
-            matched_ocr_key = None
-            for key in target_list:
-                clean_key = key.replace(" ", "")
-                if clean_target == clean_key or clean_target in clean_key or clean_key in clean_target:
-                    matched_ocr_key = key
-                    break
+            if ocr_result is not None and ocr_result.max is not None:
+                to_click = ocr_result.max.center + Point(200, 0)
+            else:
+                to_click = self._get_default_team_select_pos(target_team_idx, target_team_name)
+                if to_click is None:
+                    return self.round_fail(f'当前页未找到编队 {target_team_name}')
 
-            # 2. 如果没有找到完美匹配，退回到原有的 difflib 模糊匹配
-            if matched_ocr_key is None:
-                best_match = difflib.get_close_matches(target_team_name, target_list, n=1)
-                if best_match is not None and len(best_match) > 0:
-                    matched_ocr_key = best_match[0]
-
-            if matched_ocr_key is None:
-                return self.round_fail(f'当前页未找到编队 {target_team_name}')
-
-            ocr_result: MatchResultList = ocr_map.get(matched_ocr_key, None)
-            if ocr_result is None or ocr_result.max is None:
-                return self.round_fail(f'当前页未找到编队 {target_team_name}')
-
-            to_click = ocr_result.max.center + Point(200, 0)
             self.ctx.controller.click(to_click)
 
             time.sleep(0.5)
@@ -125,6 +119,64 @@ class ChoosePredefinedTeam(ZOperation):
             return self.round_success(result.status, wait=0.5)
         else:
             return self.round_retry(result.status, wait=1)
+
+    def _match_team_ocr_result(self, ocr_map: dict[str, MatchResultList], target_team_name: str) -> MatchResultList | None:
+        """
+        匹配目标编队名称，优先处理空格差异，再用模糊匹配兜底。
+        """
+        target_list = list(ocr_map.keys())
+        clean_target = str_utils.remove_whitespace(target_team_name)
+        clean_key_map: dict[str, str] = {
+            str_utils.remove_whitespace(key): key
+            for key in target_list
+        }
+
+        if clean_target in clean_key_map:
+            return ocr_map.get(clean_key_map[clean_target], None)
+
+        matched_ocr_key: str | None = None
+        for clean_key, original_key in clean_key_map.items():
+            if len(clean_key) < 3:
+                continue
+            if clean_target in clean_key:
+                matched_ocr_key = original_key
+                break
+
+        if matched_ocr_key is None and len(clean_target) >= 3:
+            for clean_key, original_key in clean_key_map.items():
+                if len(clean_key) < 3:
+                    continue
+                if clean_key in clean_target:
+                    matched_ocr_key = original_key
+                    break
+
+        if matched_ocr_key is None:
+            min_clean_key_len = min(3, len(clean_target))
+            clean_key_list = [
+                clean_key
+                for clean_key in clean_key_map
+                if len(clean_key) >= min_clean_key_len
+            ]
+            best_match = difflib.get_close_matches(clean_target, clean_key_list, n=1)
+            if best_match is not None and len(best_match) > 0:
+                matched_ocr_key = clean_key_map[best_match[0]]
+
+        return ocr_map.get(matched_ocr_key) if matched_ocr_key is not None else None
+
+    def _get_default_team_select_pos(self, target_team_idx: int, target_team_name: str) -> Point | None:
+        """
+        默认数字编队 OCR 不稳定时，按当前可见页的固定槽位点击选择按钮。
+        """
+        clean_target = str_utils.remove_whitespace(target_team_name)
+        if clean_target != f'编队{target_team_idx + 1}':
+            return None
+
+        visible_start_idx = self.scroll_page_count * self.TEAM_SCROLL_STEP
+        visible_idx = target_team_idx - visible_start_idx
+        if visible_idx < 0 or visible_idx >= self.TEAM_VISIBLE_COUNT:
+            return None
+
+        return self.TEAM_SELECT_POS_LIST[visible_idx]
 
 
 def __debug():

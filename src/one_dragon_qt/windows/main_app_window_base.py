@@ -83,3 +83,6 @@ class MainAppWindowBase(AppWindowBase):
     def on_ctx_ready(self) -> None:
         """在 ctx.init() 完成后调用，执行设置提供者扫描"""
         self.app_setting_manager.discover()
+        current_widget = self.stackedWidget.currentWidget()
+        if isinstance(current_widget, BaseInterface):
+            current_widget.on_context_ready()

@@ -109,6 +109,19 @@ class OneDragonRunInterface(SplitAppRunInterface):
             instance_idx=self.ctx.current_instance_idx
         )
 
+    def on_context_ready(self) -> None:
+        """
+        上下文初始化完成后刷新应用列表。
+        """
+        if not hasattr(self, 'app_run_list'):
+            return
+
+        self.config = self.ctx.app_group_manager.get_one_dragon_group_config(
+            instance_idx=self.ctx.current_instance_idx,
+        )
+        self._init_app_list()
+        self._update_setting_btn_visibility()
+
     def on_interface_shown(self) -> None:
         SplitAppRunInterface.on_interface_shown(self)
         self.config = self.ctx.app_group_manager.get_one_dragon_group_config(

@@ -44,6 +44,13 @@ class BaseInterface(QWidget):
         """
         pass
 
+    def on_context_ready(self) -> None:
+        """
+        上下文初始化完成时的回调
+        :return:
+        """
+        pass
+
     def show_info_bar(
             self,
             title: str,

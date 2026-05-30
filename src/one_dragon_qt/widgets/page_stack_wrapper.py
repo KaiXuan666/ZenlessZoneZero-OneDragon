@@ -60,6 +60,13 @@ class PageStackWrapper(QWidget):
         else:
             self._sub_interface.on_interface_hidden()
 
+    def on_context_ready(self) -> None:
+        if self.is_secondary_shown:
+            if isinstance(self._secondary_content, BaseInterface):
+                self._secondary_content.on_context_ready()
+        else:
+            self._sub_interface.on_context_ready()
+
     def _clear_secondary(self) -> None:
         if self._secondary_content is not None:
             self._page_stack.removeWidget(self._secondary_content)

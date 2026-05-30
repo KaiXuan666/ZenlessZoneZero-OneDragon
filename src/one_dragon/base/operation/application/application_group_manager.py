@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional
 from typing import TYPE_CHECKING
 
 from one_dragon.base.config.one_dragon_app_config import OneDragonAppConfig
-
 from one_dragon.base.operation.application.application_const import DEFAULT_GROUP_ID
 from one_dragon.base.operation.application.application_group_config import (
     ApplicationGroupConfig,
@@ -34,7 +32,7 @@ class ApplicationGroupManager:
         """
         return [DEFAULT_GROUP_ID]
 
-    def get_group_config(self, instance_idx: int, group_id: str) -> Optional[ApplicationGroupConfig]:
+    def get_group_config(self, instance_idx: int, group_id: str) -> ApplicationGroupConfig | None:
         """
         获取分组配置
 
@@ -66,6 +64,8 @@ class ApplicationGroupManager:
         Args:
             app_id_list: 包含的应用ID列表
         """
+        if self._default_app_id_list != app_id_list:
+            self.clear_config_cache()
         self._default_app_id_list = app_id_list
 
     def get_one_dragon_group_config(self, instance_idx: int) -> ApplicationGroupConfig:

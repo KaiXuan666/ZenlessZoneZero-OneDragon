@@ -96,6 +96,12 @@ class PivotNavigatorInterface(BaseInterface):
         if isinstance(current_widget, PageStackWrapper | BaseInterface):
             current_widget.on_interface_hidden()
 
+    def on_context_ready(self) -> None:
+        """上下文初始化完成时，转发给当前子界面。"""
+        current_widget = self.stacked_widget.currentWidget()
+        if isinstance(current_widget, PageStackWrapper | BaseInterface):
+            current_widget.on_context_ready()
+
     def push_setting_interface(self, title: str, content: QWidget) -> None:
         """在当前子页面的 PageStackWrapper 中推入二级设置界面。"""
         current_widget = self.stacked_widget.currentWidget()
