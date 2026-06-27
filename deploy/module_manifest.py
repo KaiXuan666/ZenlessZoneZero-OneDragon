@@ -76,7 +76,7 @@ if not getattr(sys, 'frozen', False):
     from PySide6.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractScrollArea, QApplication, QComboBox, QCompleter, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect, QGraphicsEffect, QGraphicsOpacityEffect, QGraphicsScene, QGraphicsView, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QSpinBox, QStackedWidget, QStyle, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTextEdit, QToolButton, QVBoxLayout, QWidget
     from abc import ABC, abstractmethod
     from collections import deque
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
     from colorama import Fore, Style, init
     from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
     from contextlib import suppress
@@ -102,7 +102,7 @@ if not getattr(sys, 'frozen', False):
     from pathlib import Path
     from pyautogui import screenshot
     from pygetwindow import Win32Window
-    from pygit2 import Blob, Oid, Remote, Repository, Walker, discover_repository, init_repository, settings
+    from pygit2 import Blob, Oid, Remote, RemoteCallbacks, Repository, Walker, discover_repository, init_repository, settings
     from pygit2.enums import CheckoutStrategy, ConfigLevel, ResetMode, SortMode
     from pynput import keyboard, mouse
     from pynput.keyboard import Controller, Key
