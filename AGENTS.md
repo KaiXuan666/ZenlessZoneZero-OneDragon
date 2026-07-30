@@ -141,10 +141,21 @@ uv run --env-file .env ruff check --fix src/你修改的文件.py
      git config core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe -o StrictHostKeyChecking=no"
      ```
 
-  3. **步骤三：进行拉取与安全推送**
-     完成上述自愈配置后，执行同步并推送到 `main` 分支即可 100% 成功：
+  3. **步骤三：进行拉取与二次远端校验**
+     完成上述自愈配置后，先执行同步：
      ```shell
      git fetch origin
-     * 确认本地状态（如有领先，可直接安全推送）：
+     ```
+     **实测避坑**：旧版本代码可能在 `git fetch` 或启动器自动更新流程中再次把 `origin` 改回 `https://ghfast.top/https://github.com/OneDragon-Anything/ZenlessZoneZero-OneDragon.git`。因此 fetch 后必须再次执行：
+     ```shell
+     git remote -v
+     ```
+     若发现 remote 又被改坏，必须立即重新执行步骤一的 `git remote set-url origin git@github.com:KaiXuan666/ZenlessZoneZero-OneDragon.git`，然后不要再次触发会改 remote 的旧逻辑，直接进入推送。
+
+  4. **步骤四：使用能访问 Windows ssh-agent 的上下文推送**
+     在普通 API 会话中，即使 `ssh-agent` 服务正在运行，也可能出现 `Error connecting to agent: Permission denied`，进而导致 `git push` 报 `Permission denied (publickey)`。此时必须用提升权限上下文验证并推送：
+     ```shell
+     C:\Windows\System32\OpenSSH\ssh-add.exe -l
      git push origin main
      ```
+     若 `ssh-add -l` 能列出 `C:\Users\xuan\.ssh\id_ed25519`，则提升权限上下文下的 `git push origin main` 才能读取系统缓存密钥并完成推送。

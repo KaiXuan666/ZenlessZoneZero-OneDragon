@@ -68,22 +68,57 @@ class CompendiumChooseMissionType(ZOperation):
         if target_idx == -1:
             return self.round_fail(f'非法的副本分类 {self.mission_type.mission_type_name}')
 
+        # 对 target_list 里的所有名字进行空格清洗，并建立映射
+        clean_target_to_idx: dict[str, int] = {}
+        clean_target_list: list[str] = []
+        for name, idx in name_to_idx.items():
+            clean_name = str_utils.remove_whitespace(name)
+            clean_target_to_idx[clean_name] = idx
+            clean_target_list.append(clean_name)
+
         target_point: Point | None = None
         ocr_results = self.ctx.ocr.crop_and_run_ocr(self.last_screenshot, area.rect)
         for ocr_result, mrl in ocr_results.items():
             if mrl.max is None:
                 continue
 
-            results = difflib.get_close_matches(ocr_result, target_list, n=1)
-
-            if results is None or len(results) == 0:
+            clean_ocr = str_utils.remove_whitespace(ocr_result)
+            if not clean_ocr:
                 continue
 
-            idx = name_to_idx.get(results[0], -1)
-            if idx == target_idx:
+            matched_idx = -1
+
+            # 1. 精确匹配
+            if clean_ocr in clean_target_to_idx:
+                matched_idx = clean_target_to_idx[clean_ocr]
+
+            # 2. 子串匹配：如果目标包含在OCR结果中
+            if matched_idx == -1:
+                for clean_target_name, idx in sorted(clean_target_to_idx.items(), key=lambda x: len(x[0]), reverse=True):
+                    if len(clean_target_name) >= 3 and clean_target_name in clean_ocr:
+                        matched_idx = idx
+                        break
+
+            # 3. 子串匹配：如果OCR结果包含在目标中
+            if matched_idx == -1:
+                for clean_target_name, idx in sorted(clean_target_to_idx.items(), key=lambda x: len(x[0]), reverse=True):
+                    if len(clean_ocr) >= 3 and clean_ocr in clean_target_name:
+                        matched_idx = idx
+                        break
+
+            # 4. 模糊匹配
+            if matched_idx == -1 and len(clean_ocr) >= 3:
+                best_match = difflib.get_close_matches(clean_ocr, clean_target_list, n=1)
+                if best_match is not None and len(best_match) > 0:
+                    matched_idx = clean_target_to_idx[best_match[0]]
+
+            if matched_idx == -1:
+                continue
+
+            if matched_idx == target_idx:
                 target_point = area.left_top + mrl.max
                 break
-            elif idx < target_idx:
+            elif matched_idx < target_idx:
                 before_target_cnt += 1
 
         if target_point is None:
