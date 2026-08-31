@@ -30,6 +30,8 @@ class TeamWrapper:
 
 class PredefinedTeamChecker(ZApplication):
 
+    """预备编队角色识别:校准工具,识别预备编队的实际角色(切换队伍前核对)。非玩法。"""
+
     TEAM_SCROLL_STEP: int = 6
     TEAM_VISIBLE_COUNT: int = 6
     AGENT_SLOT_RECT_LIST: ClassVar[list[list[Rect]]] = [

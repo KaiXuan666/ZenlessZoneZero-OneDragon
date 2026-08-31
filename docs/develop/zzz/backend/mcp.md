@@ -18,12 +18,12 @@
 | `input_text(text, use_clipboard=None)` | `backend.input_text()` | `{success, method, masked_text}`（`use_clipboard=None` 跟 `game_config.type_input_way`） |
 | `key_tap(key, press_time=0)` | `backend.key_tap()` | `{success, key, press_time}`（框架键名 `w`/`a`/`s`/`d`/`f`/`esc`/`space`；`press_time>0` 长按） |
 | `drag(x1, y1, x2, y2, duration=1)` | `backend.drag()` | `{success, x1, y1, x2, y2, duration}`（`(x1,y1)→(x2,y2)` 1080p 游戏坐标拖拽，覆盖刮刮卡 / 收集来回拖等） |
-| `list_applications` | `backend.list_applications()` | 当前实例可运行应用、独立应用列表和当前选中项（只读，不刷新配置） |
+| `list_applications` | `backend.list_applications()` | 当前实例可运行应用（每个 app 含 `app_id`/`app_name`/`description`[app 类 class docstring]）、独立应用列表和当前选中项（只读，不刷新配置） |
 | `get_predefined_teams` | `backend.list_predefined_teams()` | 当前实例预备编队(`idx`/`name`/`auto_battle`/`agent_id_list`/`agent_name_list`/`weakness_list`,过滤占位;`agent_name_list` 角色中文名;`weakness_list` 中文=防卫战配置优先,没配取角色伤害属性;`idx` 喂给 `run_operation(op_id='zzz_od.operation.choose_predefined_team.ChoosePredefinedTeam', args={'target_team_idx_list': [idx]})` 选配队) |
 | `run_one_dragon(block=False)` | `backend.run_one_dragon('mcp')` | 默认立刻返回启动状态；`block=True` 等待一条龙结束 |
 | `run_standalone_app(app_id=None, block=False)` | `backend.run_standalone_app('mcp', app_id)` | `app_id=None` 时使用 GUI「应用运行」当前选中项 |
 | `list_operations` | `operation_registry.scan_operations(ctx)` | 可运行自定义 op 列表（`op_id` + 参数 schema，纯反射不实例化） |
-| `describe_operation(op_id)` | `operation_registry.describe_operation(ctx, op_id)` | 单个 op 参数 schema（每个参数标 `json_serializable` + 整体 `debuggable`） |
+| `describe_operation(op_id)` | `operation_registry.describe_operation(ctx, op_id)` | 单个 op 参数 schema + `description`（class/`__init__` docstring 摘要，去 `:param` 噪声）；每个参数标 `json_serializable` + 整体 `debuggable` |
 | `run_operation(op_id, args=None, block=False)` | `operation_registry` 校验 + 反序列化 + `run_slot._start`（op 路径） | 默认立刻返回；`block=True` 等结束；非 Operation / 缺参 / 不支持的数据类 / 并发拒绝返错误 JSON。`@dataclass`+`from_dict` 参数(如 `ChargePlanItem`)可从 dict 传入 |
 | `get_run_status` | `backend.query_status()` | `RunStatusResult`（运行中返当前节点/重试；终态返结果/失败定位） |
 | `stop_run` | `backend.stop()` | `{"stopped": bool, ...}`（仅表信号已发出，过渡期 `get_run_status` 仍显示 running） |
@@ -34,13 +34,15 @@
 要点：
 
 - `app.py` 放 MCP server 创建、基础 game tool 和总注册入口；`service_app.py` 放应用运行 tool 与自定义 op tool 工厂。
-- backend 实例通过闭包注入 tool，不使用全局单例，也不让 FastMCP lifespan 管 backend 生命周期。
-- `capture_game_screen` 落盘返回路径；`analyze_screen` 返回结构化 dataclass，由 FastMCP 序列化。
+- backend 实例通过闭包注入 tool，不使用全局单例，也不让 MCPServer lifespan 管 backend 生命周期。
+- `capture_game_screen` 落盘返回路径；`analyze_screen` 返回结构化 dataclass，由 MCPServer 序列化。
+- MCPServer 2 会在 AnyIO 工作线程中执行同步 tool；同步 backend 方法不能依赖固定调用线程，OCR / YOLO 仍须通过项目的 `gpu_executor` 串行调用。异步 tool 继续在事件循环中执行。
 - `analyze_screen(save_image=True)`（实时模式）把已截的内存图顺手存盘 + 回传 `screenshot_path`，供调用方喂 vision double-check；默认 `false` 不落盘，离线模式忽略。
 - `analyze_screen` 成功时返回 `vision_hint`：提醒本结果仅含 OCR + 模板匹配的部分识别，不等同完整视觉理解，需要全面判断画面时配合视觉工具 / 多模态再看（能力边界提示，[design-principles.md](design-principles.md) P14；防智能体把部分识别当画面全貌）。失败时为 `null`。
 - 所有运行（`open_game` / 一条龙 / 独立应用 / 自定义 op）经**同一个 `RunSlot`** 派发：op 路径（`open_game` / `run_operation`）槽自管 `start_running/execute/stop_running`，app 路径（`run_one_dragon` / `run_standalone_app`）委托 `run_application`（复用 GUI/CLI 共享入口）。`block=True` 用 `asyncio.wrap_future(future)` 阻塞 await 取结果，`block=False` 立刻返回已启动状态，后续用 `get_run_status` 查进度。
 - `run_operation` 是**通用 operation 运行入口**（不框死为调试）：`op_id` 格式 `<dotted module path>.<ClassName>`（可从 `list_operations` 获取）；`args` 传构造参数,以 `cls(ctx, **args)` 烤进闭包——JSON 标量/列表/字典直接传;`@dataclass`+`from_dict` 参数(如 `ChargePlanItem`)传 dict,实例化前用 `coerce_dataclass_params` 自动反序列化;其余复杂数据类拒绝(提示走 application);先用 `describe_operation` 看参数 schema(`coercible=True` 的可传 dict)。
 - 配置刷新：app 路径在 `run_application` 前（槽线程内、`_start` 已赢锁后）刷新当前进程的 YAML 配置缓存，对齐 GUI 已保存设置；`list_applications` 与 `list_operations` 是只读路径，不刷新。
+- `list_applications` 的 `ApplicationInfo.description` 与 `describe_operation` 的 `description` 取自 app/op 类 docstring，服务**看不到源码的远程 MCP 受众**（源码可访问受众读源码即可）—— 见 [design-principles.md](design-principles.md)「两种受众」+ P1 源码盲受众例外。app description = class docstring 整段（D4：做什么 + 有消耗必标）；op description = `_doc_summary`（去 `:param` 噪声）。
 - `get_run_status` / `stop_run` 是统一入口：无论最近一次运行来自 op 路径还是 app 路径，都通过同一组工具查询和停止。
 - 单进程内已有运行时会返回并发拒绝，避免同一个 backend 内重复操作游戏资源。
 - MCP tool 不返回运行日志正文；客户端需要用 `get_run_status` 轮询是否完成，GUI 服务页负责展示日志。
@@ -50,7 +52,7 @@
 
 ## Instructions
 
-`FastMCP(name, instructions=...)` 传 server 级 `instructions`，握手时返回；客户端**通常注入** system prompt（协议 Optional/MAY，Claude Code 会注入；非协议强制）。放两边共通的操作哲学（保持精炼）：工具分类（观察/操作）、操作三件套（`analyze_screen` → 操作 → 等 ~1s 后验）、实机约束（`pc_alt`）、出错查 log、安全边界。
+`MCPServer(name, instructions=...)` 传 server 级 `instructions`，握手时返回；客户端**通常注入** system prompt（协议 Optional/MAY，Claude Code 会注入；非协议强制）。放两边共通的操作哲学（保持精炼）：工具分类（观察/操作）、操作三件套（`analyze_screen` → 操作 → 等 ~1s 后验）、实机约束（`pc_alt`）、出错查 log、安全边界。
 
 ## 引导内容三通道
 
