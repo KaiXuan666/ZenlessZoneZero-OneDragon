@@ -473,6 +473,10 @@ class EnterGame(ZOperation):
                 self.interact_ignore_word_list.append(match_word)
 
             time.sleep(0.5) # 等待画面稳定
+            # 游戏接入手柄后可能仍停留在手柄输入模式。此时 OCR 能识别到月卡按钮，
+            # 但鼠标点击不会被游戏 UI 接收，导致登录成功后的加载节点一直超时。
+            self.ctx.controller.ensure_mouse_mode(force=True)
+            self.ctx.controller.keyboard_controller.tap('esc')
             self.ctx.controller.click(match_word_mrl.max.center)
             return self.round_wait(status=match_word, wait=1)
 
@@ -643,6 +647,9 @@ class EnterGame(ZOperation):
 
             self.resource_download_start_time = None
             if match_word == '点击进入游戏':
+                # 物理手柄可能抢占游戏输入通道，先用键盘 Esc 触发游戏切回键鼠。
+                self.ctx.controller.ensure_mouse_mode(force=True)
+                self.ctx.controller.keyboard_controller.tap('esc')
                 click_result = self.round_by_click_area('打开游戏', '点击进入游戏')
                 if click_result.is_success:
                     if self.after_first_enter_click:

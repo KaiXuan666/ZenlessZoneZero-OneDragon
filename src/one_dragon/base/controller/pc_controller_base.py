@@ -202,13 +202,17 @@ class PcControllerBase(ControllerBase):
             self.enable_xbox()
             log.info('已启用后台模式: PostMessage 点击 + Xbox 手柄')
 
-    def _ensure_mouse_mode(self) -> bool:
+    def _ensure_mouse_mode(self, force: bool = False) -> bool:
         """确保游戏处于键鼠输入模式。
 
         游戏使用 Raw Input 检测设备类型，只有窗口在前台时才处理鼠标输入。
         因此需要极短暂地将游戏窗口切到前台、发送鼠标移动、再切回。
+
+        Args:
+            force: 即使控制器内部状态认为已经是键鼠模式，也发送一次鼠标输入。
+                游戏可能被物理手柄切换到手柄模式，而内部状态无法感知这种切换。
         """
-        if self._game_input_mode == 'keyboard_mouse':
+        if not force and self._game_input_mode == 'keyboard_mouse':
             return True
 
         hwnd = self.game_win.get_hwnd()
@@ -229,13 +233,24 @@ class PcControllerBase(ControllerBase):
         time.sleep(mouse_flash_duration)
 
         # 切回原来的前台窗口
-        if prev_hwnd and prev_hwnd != hwnd:
+        if self.background_mode and prev_hwnd and prev_hwnd != hwnd:
             with contextlib.suppress(Exception):
                 win32gui.SetForegroundWindow(prev_hwnd)
         time.sleep(0.1)
         self._game_input_mode = 'keyboard_mouse'
 
         return True
+
+    def ensure_mouse_mode(self, force: bool = False) -> bool:
+        """切换游戏到键鼠输入模式。
+
+        Args:
+            force: 是否忽略内部状态，强制发送一次鼠标输入。
+
+        Returns:
+            是否成功完成切换。
+        """
+        return self._ensure_mouse_mode(force=force)
 
     def get_mouse_flash_duration(self) -> float:
         """获取闪切键鼠模式时的单步等待时长"""
@@ -312,6 +327,11 @@ class PcControllerBase(ControllerBase):
         Returns:
             是否成功
         """
+        # 物理手柄可能在脚本运行期间把游戏切回手柄输入模式，
+        # 此时单纯移动并点击鼠标不会被游戏 UI 接收。
+        if not self._ensure_mouse_mode(force=True):
+            return False
+
         click_pos: Point
         if pos is not None:
             click_pos: Point = self.game_win.game2win_pos(pos)

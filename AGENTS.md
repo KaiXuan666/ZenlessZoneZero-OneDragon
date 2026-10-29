@@ -29,6 +29,7 @@ uv run --env-file .env ruff check --fix src/你修改的文件.py
 - 只对自己修改的文件运行 `ruff check`。
 - 不要对整个 `src/` 目录运行 ruff，现有仓库尚未全面适配。
 - 优先使用 Windows PowerShell 可直接执行的命令。
+- 本机使用场景无需打包安装器；编译 exe 时只构建 `OneDragon-Launcher` 或 `OneDragon-RuntimeLauncher`，不要执行包含 `OneDragon-Installer` 的完整安装器打包流程。
 
 ## 架构落点
 
